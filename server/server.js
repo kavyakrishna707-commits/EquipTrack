@@ -1,27 +1,45 @@
-const requestRoutes = require("./routes/requestRoutes");
 const express = require("express");
 const cors = require("cors");
 
-const connection = require("./config/db");
-
 const userRoutes = require("./routes/userRoutes");
 const equipmentRoutes = require("./routes/equipmentRoutes");
+const requestRoutes = require("./routes/requestRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+
 const app = express();
 
+
+// ================= MIDDLEWARE =================
+
 app.use(cors());
+
 app.use(express.json());
-app.use("/api/requests", requestRoutes);
-// User routes
+
+
+// ================= ROUTES =================
+
+// Login and Register
 app.use("/api/users", userRoutes);
 
-// Equipment routes
+// Equipment
 app.use("/api/equipment", equipmentRoutes);
 
-app.get("/", (req, res) => {
-  res.send("Equipment Checkout API is running");
-});
+// Equipment Requests
+app.use("/api/requests", requestRoutes);
+
+// Dashboard
 app.use("/api/dashboard", dashboardRoutes);
+
+
+// ================= TEST ROUTE =================
+
+app.get("/", (req, res) => {
+  res.send("Equipment Checkout Backend is Running");
+});
+
+
+// ================= START SERVER =================
+
 const PORT = 5000;
 
 app.listen(PORT, () => {

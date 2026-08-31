@@ -4,42 +4,43 @@ import Navbar from "../components/Navbar";
 
 function AdminRequests() {
   const [requests, setRequests] = useState([]);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
   const navigate = useNavigate();
 
-  const getRequests = () => {
-    setLoading(true);
-    setError("");
+  // ================= GET REQUESTS =================
 
-    fetch("http://localhost:5000/api/requests")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to load requests");
-        }
+  const getRequests = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/requests"
+      );
 
-        return response.json();
-      })
-      .then((data) => {
+      const data = await response.json();
+
+      if (response.ok) {
         setRequests(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.log(error);
-        setError("Could not load requests.");
-        setLoading(false);
-      });
+      } else {
+        alert(data.message || "Failed to load requests");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Cannot connect to server");
+    }
   };
 
   useEffect(() => {
     getRequests();
   }, []);
 
+  // ================= APPROVE / REJECT =================
+
   const updateStatus = async (id, status) => {
+    const action =
+      status === "Approved"
+        ? "approve"
+        : "reject";
+
     const confirmed = window.confirm(
-      `Are you sure you want to ${status.toLowerCase()} this request?`
+      `Are you sure you want to ${action} this request?`
     );
 
     if (!confirmed) {
@@ -48,14 +49,16 @@ function AdminRequests() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/requests/${id}`,
+        `http://localhost:5000/api/requests/${id}/status`,
         {
           method: "PUT",
+
           headers: {
             "Content-Type": "application/json"
           },
+
           body: JSON.stringify({
-            status
+            status: status
           })
         }
       );
@@ -64,58 +67,54 @@ function AdminRequests() {
 
       if (response.ok) {
         alert(data.message);
+
+        // Refresh requests
         getRequests();
       } else {
-        alert(data.message);
+        alert(data.message || "Failed to update request");
       }
     } catch (error) {
-      console.log(error);
-      alert("Something went wrong.");
+      console.error(error);
+      alert("Cannot connect to server");
     }
   };
 
-  const filteredRequests = requests.filter((item) => {
-    const searchText = search.toLowerCase();
+  // ================= CONFIRM RETURN =================
 
-    return (
-      String(item.id).includes(searchText) ||
-      (item.user_name || "")
-        .toLowerCase()
-        .includes(searchText) ||
-      (item.user_email || "")
-        .toLowerCase()
-        .includes(searchText) ||
-      (item.equipment_name || "")
-        .toLowerCase()
-        .includes(searchText) ||
-      (item.status || "")
-        .toLowerCase()
-        .includes(searchText)
+  const confirmReturn = async (id) => {
+    const confirmed = window.confirm(
+      "Have you physically received and verified the equipment?"
     );
-  });
 
-  const pendingCount = requests.filter(
-    (item) => item.status === "Pending"
-  ).length;
-
-  const approvedCount = requests.filter(
-    (item) => item.status === "Approved"
-  ).length;
-
-  const rejectedCount = requests.filter(
-    (item) => item.status === "Rejected"
-  ).length;
-
-  const getStatusBadge = (status) => {
-    if (status === "Approved") {
-      return "bg-success";
+    if (!confirmed) {
+      return;
     }
 
-    if (status === "Rejected") {
-      return "bg-danger";
-    }
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/requests/${id}/confirm-return`,
+        {
+          method: "PUT"
+        }
+      );
 
-    return "bg-warning text-dark";
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(data.message);
+
+        // Refresh requests
+        getRequests();
+      } else {
+        alert(
+          data.message ||
+          "Failed to confirm return"
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Cannot connect to server");
+    }
   };
 
   return (
@@ -125,20 +124,20 @@ function AdminRequests() {
 
       <div className="container py-5">
 
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+        <div className="d-flex justify-content-between align-items-center mb-4">
 
           <div>
-            <h1 className="fw-bold mb-1">
+            <h1 className="fw-bold">
               Equipment Requests
             </h1>
 
-            <p className="text-muted mb-0">
-              Review and manage user equipment requests.
+            <p className="text-muted">
+              Approve, reject and verify equipment returns.
             </p>
           </div>
 
           <button
-            className="btn btn-outline-primary mt-3 mt-md-0"
+            className="btn btn-outline-primary"
             onClick={getRequests}
           >
             🔄 Refresh
@@ -146,269 +145,219 @@ function AdminRequests() {
 
         </div>
 
-        {/* Statistics */}
-        <div className="row g-4 mb-4">
+        {requests.length === 0 ? (
 
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm text-center">
-              <div className="card-body">
-                <h6 className="text-muted">
-                  PENDING
-                </h6>
-
-                <h2 className="fw-bold text-warning">
-                  {pendingCount}
-                </h2>
-              </div>
-            </div>
+          <div className="alert alert-info text-center">
+            No requests found.
           </div>
 
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm text-center">
-              <div className="card-body">
-                <h6 className="text-muted">
-                  APPROVED
-                </h6>
+        ) : (
 
-                <h2 className="fw-bold text-success">
-                  {approvedCount}
-                </h2>
-              </div>
-            </div>
-          </div>
+          <div className="card shadow-sm">
 
-          <div className="col-md-4">
-            <div className="card border-0 shadow-sm text-center">
-              <div className="card-body">
-                <h6 className="text-muted">
-                  REJECTED
-                </h6>
+            <div className="card-body p-0">
 
-                <h2 className="fw-bold text-danger">
-                  {rejectedCount}
-                </h2>
-              </div>
-            </div>
-          </div>
+              <div className="table-responsive">
 
-        </div>
+                <table className="table table-hover align-middle mb-0">
 
-        {/* Search */}
-        <div className="card border-0 shadow-sm mb-4">
-          <div className="card-body">
-            <label className="form-label fw-semibold">
-              Search Requests
-            </label>
+                  <thead className="table-dark">
 
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by user, email, equipment, ID or status..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
+                    <tr>
+                      <th>ID</th>
+                      <th>Equipment</th>
+                      <th>Quantity</th>
+                      <th>Request Date</th>
+                      <th>Return Date</th>
+                      <th>Status</th>
+                      <th>Return Status</th>
+                      <th>Action</th>
+                    </tr>
 
-        {/* Loading */}
-        {loading && (
-          <div className="text-center py-5">
-            <div
-              className="spinner-border text-primary"
-              role="status"
-            >
-              <span className="visually-hidden">
-                Loading...
-              </span>
-            </div>
+                  </thead>
 
-            <p className="text-muted mt-3">
-              Loading requests...
-            </p>
-          </div>
-        )}
+                  <tbody>
 
-        {/* Error */}
-        {!loading && error && (
-          <div className="text-center py-5">
-            <div className="alert alert-danger">
-              {error}
-            </div>
+                    {requests.map((item) => (
 
-            <button
-              className="btn btn-primary"
-              onClick={getRequests}
-            >
-              Try Again
-            </button>
-          </div>
-        )}
+                      <tr key={item.id}>
 
-        {/* Empty */}
-        {!loading &&
-          !error &&
-          filteredRequests.length === 0 && (
-            <div className="card border-0 shadow-sm">
-              <div className="card-body text-center py-5">
-                <div className="fs-1 mb-3">
-                  📋
-                </div>
+                        <td>
+                          #{item.id}
+                        </td>
 
-                <h4>
-                  No Requests Found
-                </h4>
+                        <td>
+                          <strong>
+                            {item.equipment_name}
+                          </strong>
+                        </td>
 
-                <p className="text-muted mb-0">
-                  There are no requests matching your search.
-                </p>
-              </div>
-            </div>
-          )}
+                        <td>
+                          {item.quantity}
+                        </td>
 
-        {/* Table */}
-        {!loading &&
-          !error &&
-          filteredRequests.length > 0 && (
-            <div className="card border-0 shadow-sm">
+                        <td>
+                          {item.request_date}
+                        </td>
 
-              <div className="card-body p-0">
+                        <td>
+                          {item.return_date}
+                        </td>
 
-                <div className="table-responsive">
+                        {/* REQUEST STATUS */}
 
-                  <table className="table table-hover align-middle mb-0">
+                        <td>
 
-                    <thead className="table-dark">
-                      <tr>
-                        <th className="px-3">
-                          ID
-                        </th>
+                          {item.status === "Pending" && (
+                            <span className="badge bg-warning">
+                              Pending
+                            </span>
+                          )}
 
-                        <th>
-                          User
-                        </th>
+                          {item.status === "Approved" && (
+                            <span className="badge bg-success">
+                              Approved
+                            </span>
+                          )}
 
-                        <th>
-                          Equipment
-                        </th>
+                          {item.status === "Rejected" && (
+                            <span className="badge bg-danger">
+                              Rejected
+                            </span>
+                          )}
 
-                        <th>
-                          Quantity
-                        </th>
+                        </td>
 
-                        <th>
-                          Request Date
-                        </th>
+                        {/* RETURN STATUS */}
 
-                        <th>
-                          Return Date
-                        </th>
+                        <td>
 
-                        <th>
-                          Status
-                        </th>
+                          {item.return_status ===
+                            "Pending" && (
 
-                        <th>
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
+                            <span className="badge bg-warning text-dark">
+                              Return Pending
+                            </span>
 
-                    <tbody>
+                          )}
 
-                      {filteredRequests.map((item) => (
-                        <tr key={item.id}>
+                          {item.return_status ===
+                            "Returned" && (
 
-                          <td className="px-3">
-                            #{item.id}
-                          </td>
+                            <span className="badge bg-success">
+                              Returned
+                            </span>
 
-                          <td>
-                            <div className="fw-semibold">
-                              {item.user_name || "Unknown"}
+                          )}
+
+                          {(!item.return_status ||
+                            item.return_status ===
+                              "Not Requested") && (
+
+                            <span className="badge bg-secondary">
+                              Not Requested
+                            </span>
+
+                          )}
+
+                        </td>
+
+                        {/* ACTION */}
+
+                        <td>
+
+                          {/* Pending request */}
+
+                          {item.status === "Pending" && (
+
+                            <div className="d-flex gap-2">
+
+                              <button
+                                className="btn btn-success btn-sm"
+                                onClick={() =>
+                                  updateStatus(
+                                    item.id,
+                                    "Approved"
+                                  )
+                                }
+                              >
+                                Approve
+                              </button>
+
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() =>
+                                  updateStatus(
+                                    item.id,
+                                    "Rejected"
+                                  )
+                                }
+                              >
+                                Reject
+                              </button>
+
                             </div>
 
-                            <small className="text-muted">
-                              {item.user_email || ""}
-                            </small>
-                          </td>
+                          )}
 
-                          <td>
-                            {item.equipment_name}
-                          </td>
+                          {/* Return pending */}
 
-                          <td>
-                            {item.quantity}
-                          </td>
+                          {item.status === "Approved" &&
+                            item.return_status ===
+                              "Pending" && (
 
-                          <td>
-                            {item.request_date}
-                          </td>
-
-                          <td>
-                            {item.return_date}
-                          </td>
-
-                          <td>
-                            <span
-                              className={`badge ${getStatusBadge(
-                                item.status
-                              )}`}
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() =>
+                                confirmReturn(
+                                  item.id
+                                )
+                              }
                             >
-                              {item.status}
+                              Confirm Return
+                            </button>
+
+                          )}
+
+                          {/* Already returned */}
+
+                          {item.return_status ===
+                            "Returned" && (
+
+                            <span className="text-success fw-bold">
+                              ✓ Verified
                             </span>
-                          </td>
 
-                          <td>
-                            {item.status === "Pending" ? (
-                              <div className="d-flex gap-2">
+                          )}
 
-                                <button
-                                  className="btn btn-success btn-sm"
-                                  onClick={() =>
-                                    updateStatus(
-                                      item.id,
-                                      "Approved"
-                                    )
-                                  }
-                                >
-                                  Approve
-                                </button>
+                          {/* Nothing to do */}
 
-                                <button
-                                  className="btn btn-danger btn-sm"
-                                  onClick={() =>
-                                    updateStatus(
-                                      item.id,
-                                      "Rejected"
-                                    )
-                                  }
-                                >
-                                  Reject
-                                </button>
+                          {item.status === "Rejected" && (
+                            <span className="text-muted">
+                              No Action
+                            </span>
+                          )}
 
-                              </div>
-                            ) : (
-                              <span className="text-muted">
-                                Completed
-                              </span>
-                            )}
-                          </td>
+                        </td>
 
-                        </tr>
-                      ))}
+                      </tr>
 
-                    </tbody>
+                    ))}
 
-                  </table>
+                  </tbody>
 
-                </div>
+                </table>
 
               </div>
 
             </div>
-          )}
+
+          </div>
+
+        )}
 
       </div>
+
     </div>
   );
 }

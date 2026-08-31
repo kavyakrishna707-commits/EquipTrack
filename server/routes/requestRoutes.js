@@ -1,27 +1,26 @@
 const express = require("express");
 
+const router = express.Router();
+
 const {
   createRequest,
   getRequests,
   getUserRequests,
   updateRequestStatus,
-  returnEquipment
+  requestReturn,
+  confirmReturn
 } = require("../controllers/requestController");
-
-const router = express.Router();
 
 router.post("/", createRequest);
 
-// Get requests of a particular user
-router.get("/user/:userId", getUserRequests);
-
-// Get all requests for admin
 router.get("/", getRequests);
 
-// Approve or reject
-router.put("/:id", updateRequestStatus);
+router.get("/user/:userId", getUserRequests);
 
-// Return equipment
-router.put("/:id/return", returnEquipment);
+router.put("/:id/status", updateRequestStatus);
+
+router.put("/:id/return", requestReturn);
+
+router.put("/:id/confirm-return", confirmReturn);
 
 module.exports = router;
